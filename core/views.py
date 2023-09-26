@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 from .serializers import UserSerializer, CategorySerializer
 import requests
+import json
 
 
 class LogInUserView(APIView):
@@ -43,7 +44,37 @@ class LogInUserView(APIView):
 
 class CategoryView(APIView):    
     def get(self, request):
-        pass
+        after = request.GET.get('after', '')
+        first = request.GET.get('first', 10)
+        url = "http://localhost:8000/graphql/"
+        query = """
+        query ($first: Int!, $after: String) {
+        categories(first: $first, after: $after) {
+            pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+            }
+            edges {
+            node {
+                id
+                name
+                slug
+            }
+            }
+        }
+        }
+        """
+        variables = {
+            "first": first,
+            "after": after 
+        }
+        response = requests.post(url, json={'query': query, 'variables': variables})
+        data = response.json()['data']['categories']        
+
+        return Response(data)
+
 
     def post(self, request):
         authorization_header = request.META.get('HTTP_AUTHORIZATION', '')
