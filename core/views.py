@@ -123,3 +123,48 @@ class CategoryView(APIView):
 
         return Response({'message': 'UnAuthorized'}, status=status.HTTP_401_UNAUTHORIZED)
         
+
+class ProductsView(APIView):
+    def post(self, request):
+        authorization_header = request.META.get('HTTP_AUTHORIZATION', '')
+        token = authorization_header.split('Bearer ')[-1] if 'Bearer ' in authorization_header else ''
+        data = request.data
+        name = data.get('name', None)
+        product_type = data.get('product_type', None)
+        category_type = data.get('category_type', None)
+        headers = {
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json',
+        }
+        query = """
+        mutation createProduct($input: ProductCreateInput!) {
+            productCreate(input: $input) {
+                errors {
+                field
+                code
+                message
+                }
+                product {
+                name
+                id
+                productType {
+                    id
+                }
+                category {
+                    id
+                }
+                }
+            }
+            }
+        """
+        variables = {
+            "input": {
+                "name": name,
+                "productType": product_type,
+                "category": category_type
+            }
+
+        }
+        url = 'http://localhost:8000/graphql/'
+        response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
+        return Response(response.json())
