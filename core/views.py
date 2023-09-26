@@ -1,12 +1,12 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from .serializers import UserSerializer
+from rest_framework.authentication import TokenAuthentication
+from .serializers import UserSerializer, CategorySerializer
 import requests
 
 
 class LogInUserView(APIView):
-
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -40,3 +40,55 @@ class LogInUserView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class CategoryView(APIView):    
+    def get(self, request):
+        pass
+
+    def post(self, request):
+        authorization_header = request.META.get('HTTP_AUTHORIZATION', '')
+        token = authorization_header.split('Bearer ')[-1] if 'Bearer ' in authorization_header else ''
+        url = 'http://localhost:8000/graphql/'
+        query = """
+        mutation($name: String!, $slug: String!) {
+        categoryCreate(input: { name: $name, slug: $slug }) {
+            errors {
+            field
+            message
+            }
+            category {
+            id
+            name
+                }
+            }
+        }
+        """
+
+        if token:
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json',
+            }
+            serializer = CategorySerializer(data=request.data)
+            if serializer.is_valid():
+                name = serializer.validated_data['name']
+                slug = serializer.validated_data['slug']
+                variables = {
+                    "name": name,
+                    "slug": slug
+                }
+                response = requests.post(url, json={'query': query, 'variables': variables}, headers=headers)
+                errors = response.json().get('errors', None)
+                data = response.json()["data"]["categoryCreate"]
+                if not errors:
+                    errors = data.get('errors', None)
+                    category = data.get('category', None)
+                    if not errors:
+                        return Response(category, status=status.HTTP_200_OK)
+                    return Response({'message': errors}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": errors[0]['message']}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+
+        return Response({'message': 'UnAuthorized'}, status=status.HTTP_401_UNAUTHORIZED)
+        
